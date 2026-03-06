@@ -1,3 +1,16 @@
+# [1.1.0](https://github.com/cjh-store/markstream-vue/compare/v1.0.1...v1.1.0) (2026-03-06)
+
+
+### Bug Fixes
+
+* **math:** 配置 KaTeX strict 模式为 ignore，避免非标准语法警告 ([516bd38](https://github.com/cjh-store/markstream-vue/commit/516bd3803e2a6a461327515fee78dbbcc8e3c38e))
+* **table:** 修复表格流式渲染闪烁问题 ([a68954f](https://github.com/cjh-store/markstream-vue/commit/a68954fecbc31328e5458e21b0a2fd33f615a6b6))
+
+
+### Features
+
+* **style:** 优化 Markdown 渲染样式，整体更紧凑 ([74b8756](https://github.com/cjh-store/markstream-vue/commit/74b87568fe237e293896e5a0484537c722729177))
+
 ## [1.0.1](https://github.com/cjh-store/markstream-vue/compare/v1.0.0...v1.0.1) (2026-03-06)
 
 
