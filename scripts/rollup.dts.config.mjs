@@ -30,10 +30,8 @@ export default [
       dts({
         // Inline local type imports to ensure named interfaces are bundled
         respectExternal: false,
+        tsconfig: './tsconfig.json',
       }),
-    ],
-    external: [
-      /^stream-markdown-parser(?:\/.*)?$/,
     ],
     output: [
       {

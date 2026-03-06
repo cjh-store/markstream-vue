@@ -61,7 +61,6 @@ export default defineConfig({
         'monaco-editor-core',
         'stream-monaco',
         'stream-markdown',
-        'stream-markdown-parser',
         '@floating-ui/dom',
         'vscode-textmate',
         'vscode-oniguruma',
@@ -111,6 +110,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': '/src',
+      'stream-markdown-parser': '/packages/markdown-parser/src/index.ts',
     },
   },
 })

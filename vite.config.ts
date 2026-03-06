@@ -33,6 +33,10 @@ export default defineConfig(({ mode }) => {
         // (rollup-plugin-dts) consume a stable entrypoint instead of relying
         // on ad-hoc merges which can accidentally drop or rename exports.
         insertTypesEntry: true,
+        // Exclude parser alias from dts resolution so the emitted .d.ts keeps
+        // the bare module name 'stream-markdown-parser' (resolved later by
+        // rollup-plugin-dts via tsconfig paths).
+        aliasesExclude: ['stream-markdown-parser'],
         // Use a build-only tsconfig without path aliases to avoid rewriting
         // imports like "stream-markdown-parser" into relative workspace paths
         // in the emitted .d.ts (which breaks type bundling).
@@ -115,7 +119,6 @@ export default defineConfig(({ mode }) => {
             'katex/dist/contrib/mhchem',
             'stream-monaco',
             'stream-markdown',
-            'stream-markdown-parser',
             'monaco-editor',
             'shiki',
           ].includes(id)
@@ -143,13 +146,10 @@ export default defineConfig(({ mode }) => {
     }
   }
 
-  // Alias resolution: during dev/test, point workspace dep to source to avoid needing its dist build
+  // Alias resolution: point workspace dep to source to avoid needing its dist build
   const alias: Record<string, string> = {
     '@': '/src',
-  }
-  if (mode !== 'npm') {
-    alias['stream-markdown-parser'] = '/packages/markdown-parser/src/index.ts'
-    alias['stream-markdown-parser/*'] = '/packages/markdown-parser/src/*'
+    'stream-markdown-parser': '/packages/markdown-parser/src/index.ts',
   }
 
   return {

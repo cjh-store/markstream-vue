@@ -1,19 +1,22 @@
 {
-  "name": "markstream-vue",
+  "name": "@cjh0/markstream-vue",
   "type": "module",
   "version": "0.0.8-beta.2",
   "packageManager": "pnpm@10.28.2",
   "description": "Vue 3 Markdown renderer optimized for large docs: progressive Mermaid, streaming diff code blocks, and fast real-time preview.",
   "author": "Simon He",
   "license": "MIT",
-  "homepage": "https://github.com/Simon-He95/markstream-vue",
+  "publishConfig": {
+    "access": "public"
+  },
+  "homepage": "https://github.com/cjh-store/markstream-vue",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Simon-He95/markstream-vue.git",
-    "homepage": "https://github.com/Simon-He95/markstream-vue#readme"
+    "url": "git+https://github.com/cjh-store/markstream-vue.git",
+    "homepage": "https://github.com/cjh-store/markstream-vue#readme"
   },
   "bugs": {
-    "url": "https://github.com/Simon-He95/markstream-vue/issues"
+    "url": "https://github.com/cjh-store/markstream-vue/issues"
   },
   "keywords": [
     "vue",
@@ -78,17 +81,7 @@
     "check:ssr": "vitest --run -t \"SSR import safety\"",
     "prepublishOnly": "npm run build",
     "play": "pnpm run -C playground dev",
-    "play:vue2": "pnpm run -C playground-vue2 dev",
-    "play:vue2-cli": "pnpm run -C playground-vue2-cli dev",
     "play:build": "pnpm run -C playground build",
-    "play:vue2:build": "pnpm run -C playground-vue2 build",
-    "play:vue2:preview": "pnpm run -C playground-vue2 preview",
-    "play:nuxt": "pnpm run -C playground-nuxt dev",
-    "play:nuxt:build": "pnpm run -C playground-nuxt build",
-    "play:nuxt:preview": "pnpm run -C playground-nuxt preview",
-    "play:react": "pnpm run -C playground-react dev",
-    "play:react:build": "pnpm run -C playground-react build",
-    "play:react:preview": "pnpm run -C playground-react preview",
     "preview": "pnpm run -C playground preview",
     "build:parser": "pnpm run -C packages/markdown-parser build",
     "build": "vite build --mode npm && vite build --config vite.config.tailwind.ts --mode npm && node scripts/copy-tailwind-css.mjs && node scripts/generate-px-css.mjs && pnpm run build:dts",
@@ -103,26 +96,10 @@
     "docs:build:gh": "VITEPRESS_BASE=/markstream-vue/ pnpm docs:build",
     "docs:serve": "vitepress serve docs",
     "docs:deploy": "VITEPRESS_BASE=/markstream-vue/ pnpm docs:build && pnpm docs:serve",
-    "docs:deploy:netlify": "pnpm docs:build && echo 'Docs built to docs/.vitepress/dist'",
     "build:dts": "rollup -c ./scripts/rollup.dts.config.mjs && node ./scripts/clean-dts.cjs",
     "build:demo": "vite build",
     "build:view": "vite preview",
     "changelog": "conventional-changelog -p angular -i CHANGELOG.md -s -r 0",
-    "release": "bumpp --all --commit --no-tag --no-push --execute 'conventional-changelog -p angular -i CHANGELOG.md -s -r 0' && pnpm publish && node scripts/tag-package.mjs --package-json package.json --push",
-    "tag": "node scripts/tag-package.mjs",
-    "tag:vue3": "node scripts/tag-package.mjs --package-json package.json",
-    "tag:vue3:push": "node scripts/tag-package.mjs --package-json package.json --push",
-    "tag:vue2": "node scripts/tag-package.mjs --package-json packages/markstream-vue2/package.json",
-    "tag:vue2:push": "node scripts/tag-package.mjs --package-json packages/markstream-vue2/package.json --push",
-    "tag:react": "node scripts/tag-package.mjs --package-json packages/markstream-react/package.json",
-    "tag:react:push": "node scripts/tag-package.mjs --package-json packages/markstream-react/package.json --push",
-    "tag:parser": "node scripts/tag-package.mjs --package-json packages/markdown-parser/package.json",
-    "tag:parser:push": "node scripts/tag-package.mjs --package-json packages/markdown-parser/package.json --push",
-    "tag:backfill:dry": "node scripts/backfill-legacy-tags.mjs --dry-run",
-    "tag:backfill": "node scripts/backfill-legacy-tags.mjs --apply",
-    "tag:prune:v:dry": "node scripts/prune-tags.mjs --pattern 'v*' --dry-run",
-    "tag:prune:v:local": "node scripts/prune-tags.mjs --pattern 'v*' --apply --local",
-    "tag:prune:v:all": "node scripts/prune-tags.mjs --pattern 'v*' --apply --local --remote-delete",
     "check:peer-deps": "node ./scripts/check-peer-deps.cjs"
   },
   "peerDependencies": {
@@ -164,7 +141,14 @@
   },
   "dependencies": {
     "@floating-ui/dom": "^1.7.5",
-    "stream-markdown-parser": "workspace:*"
+    "markdown-it-container": "^4.0.0",
+    "markdown-it-footnote": "^4.0.0",
+    "markdown-it-ins": "^4.0.0",
+    "markdown-it-mark": "^4.0.0",
+    "markdown-it-sub": "^2.0.0",
+    "markdown-it-sup": "^2.0.0",
+    "markdown-it-task-checkbox": "^1.0.6",
+    "markdown-it-ts": "0.0.4"
   },
   "devDependencies": {
     "@antfu/eslint-config": "^5.4.1",
@@ -201,26 +185,10 @@
     "vue-tsc": "^2.2.12"
   },
   "pnpm": {
-    "packageExtensions": {
-      "vue-template-compiler@2.6.14": {
-        "dependencies": {
-          "vue": "2.6.14"
-        }
-      },
-      "vue-template-compiler@2.7.16": {
-        "dependencies": {
-          "vue": "2.7.16"
-        }
-      }
-    },
     "overrides": {
       "@vue/reactivity": "3.5.25",
       "@vue/runtime-core": "3.5.25",
       "@vue/runtime-dom": "3.5.25",
-      "playground-vue2-cli>vue": "2.6.14",
-      "playground-vue2-cli>vue-template-compiler": "2.6.14",
-      "playground-vue2>vue": "2.7.16",
-      "playground-vue2>vue-template-compiler": "2.7.16",
       "vue@^3": "3.5.25"
     }
   },
