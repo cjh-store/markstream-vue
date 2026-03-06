@@ -64,13 +64,13 @@ const listItemComponent = computed(() => {
 
 <style scoped>
 .list-node {
-  @apply my-5 pl-[calc(13/8*1em)];
+  @apply my-2 pl-[1.5em];
 }
 .list-decimal {
   list-style-type: decimal;
 }
 .list-disc {
   list-style-type: disc;
-  @apply max-lg:my-[calc(4/3*1em)] max-lg:pl-[calc(14/9*1em)];
+  @apply max-lg:my-2 max-lg:pl-[1.5em];
 }
 </style>

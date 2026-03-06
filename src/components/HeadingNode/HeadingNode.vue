@@ -93,26 +93,26 @@ hr + .heading-node {
 }
 
 .heading-1 {
-  @apply mt-0 mb-[calc(8/9*1em)] text-4xl leading-[calc(10/9*1)] font-extrabold;
+  @apply mt-0 mb-[0.5em] text-2xl leading-[1.3] font-bold;
 }
 
 .heading-2 {
-  @apply mt-8 mb-4 text-2xl leading-[calc(4/3*1)] font-bold;
+  @apply mt-5 mb-2 text-xl leading-[1.3] font-bold;
 }
 
 .heading-3 {
-  @apply mt-[calc(8/5*1em)] mb-[calc(3/5*1em)] text-xl font-semibold leading-[calc(5/3*1)];
+  @apply mt-4 mb-1.5 text-lg font-semibold leading-[1.4];
 }
 
 .heading-4 {
-  @apply mt-6 mb-2 text-base font-semibold;
+  @apply mt-3 mb-1 text-base font-semibold;
 }
 
 .heading-5 {
-  @apply m-0 text-base;
+  @apply m-0 text-sm;
 }
 
 .heading-6 {
-  @apply m-0 text-base;
+  @apply m-0 text-sm;
 }
 </style>

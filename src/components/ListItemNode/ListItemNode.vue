@@ -43,7 +43,7 @@ const liValueAttr = computed(() =>
 </script>
 
 <template>
-  <li class="list-item pl-1.5 my-2" dir="auto" v-bind="liValueAttr">
+  <li class="list-item pl-1 my-0.5" dir="auto" v-bind="liValueAttr">
     <NodeRenderer
       v-memo="[itemNode?.children]"
       v-bind="{ showTooltips: props.showTooltips }"

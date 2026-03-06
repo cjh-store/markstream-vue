@@ -88,7 +88,7 @@ const katexReady = useKatexReady()
 
 <style scoped>
 .paragraph-node{
-  margin: 1.25em 0;
+  margin: 0.6em 0;
 }
 li .paragraph-node{
   margin: 0;

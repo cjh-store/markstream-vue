@@ -49,17 +49,17 @@ const bodyRows = computed(() => props.node.rows ?? [])
 <template>
   <div class="table-node-wrapper">
     <table
-      class="my-8 text-sm table-node"
+      class="text-sm table-node"
       :class="{ 'table-node--loading': isLoading }"
       :aria-busy="isLoading"
     >
-      <thead class="border-[var(--table-border,#cbd5e1)]">
-        <tr class="border-b">
+      <thead>
+        <tr>
           <th
             v-for="(cell, index) in node.header.cells"
             :key="`header-${index}`"
             dir="auto"
-            class="font-semibold p-[calc(4/7*1em)]"
+            class="font-semibold p-[8px_12px]"
             :class="[
               cell.align === 'right'
                 ? 'text-right'
@@ -82,13 +82,11 @@ const bodyRows = computed(() => props.node.rows ?? [])
         <tr
           v-for="(row, rowIndex) in bodyRows"
           :key="`row-${rowIndex}`"
-          class="border-[var(--table-border,#cbd5e1)]"
-          :class="[rowIndex < bodyRows.length - 1 ? 'border-b' : '']"
         >
           <td
             v-for="(cell, cellIndex) in row.cells"
             :key="`cell-${rowIndex}-${cellIndex}`"
-            class="p-[calc(4/7*1em)]"
+            class="p-[8px_12px]"
             :class="[
               cell.align === 'right'
                 ? 'text-right'
@@ -128,19 +126,48 @@ const bodyRows = computed(() => props.node.rows ?? [])
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-x: contain;
   overscroll-behavior-y: auto;
-  scrollbar-gutter: stable;
+  border: 1px solid var(--table-border, #e5e7eb);
+  border-radius: 8px;
+  margin: 0.75em 0;
 }
 
 .table-node {
-  /* Use a stable layout to prevent column reflow jitter during streaming/typewriter updates. */
-  table-layout: fixed;
-  width: 100%;
+  table-layout: auto;
+  min-width: 100%;
+  width: max-content;
   border-collapse: collapse;
+}
+
+.table-node thead {
+  background-color: var(--table-header-bg, #f9fafb);
+}
+
+.table-node th,
+.table-node td {
+  border: 1px solid var(--table-border, #e5e7eb);
+}
+
+/* 去掉外边缘重复边框，由 wrapper 的 border 负责 */
+.table-node tr:first-child th,
+.table-node tr:first-child td {
+  border-top: none;
+}
+.table-node tr:last-child th,
+.table-node tr:last-child td {
+  border-bottom: none;
+}
+.table-node th:first-child,
+.table-node td:first-child {
+  border-left: none;
+}
+.table-node th:last-child,
+.table-node td:last-child {
+  border-right: none;
 }
 
 .table-node :deep(th),
 .table-node :deep(td) {
-  white-space: normal;
+  white-space: nowrap;
   overflow-wrap: break-word;
   word-break: normal;
 }
