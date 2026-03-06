@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import NodeRenderer from '../NodeRenderer'
 
 // 定义单元格节点
@@ -44,13 +44,83 @@ defineEmits(['copy'])
 
 const isLoading = computed(() => props.node.loading ?? false)
 const bodyRows = computed(() => props.node.rows ?? [])
+const showLoadingIndicator = ref(false)
+const LOADING_INDICATOR_DELAY = 120
+const LOADING_INDICATOR_MIN_VISIBLE = 120
+let enterTimer: ReturnType<typeof setTimeout> | null = null
+let leaveTimer: ReturnType<typeof setTimeout> | null = null
+let loadingIndicatorVisibleAt = 0
+function clearEnterTimer() {
+  if (!enterTimer)
+    return
+  clearTimeout(enterTimer)
+  enterTimer = null
+}
+
+function clearLeaveTimer() {
+  if (!leaveTimer)
+    return
+  clearTimeout(leaveTimer)
+  leaveTimer = null
+}
+
+watch(
+  isLoading,
+  (value) => {
+    clearEnterTimer()
+    clearLeaveTimer()
+
+    if (value) {
+      if (showLoadingIndicator.value)
+        return
+
+      enterTimer = setTimeout(() => {
+        if (!isLoading.value)
+          return
+        showLoadingIndicator.value = true
+        loadingIndicatorVisibleAt = Date.now()
+        enterTimer = null
+      }, LOADING_INDICATOR_DELAY)
+      return
+    }
+
+    if (!showLoadingIndicator.value)
+      return
+
+    const elapsed = Date.now() - loadingIndicatorVisibleAt
+    const remaining = LOADING_INDICATOR_MIN_VISIBLE - elapsed
+    if (remaining <= 0) {
+      showLoadingIndicator.value = false
+      return
+    }
+
+    leaveTimer = setTimeout(() => {
+      showLoadingIndicator.value = false
+      leaveTimer = null
+    }, remaining)
+  },
+  { immediate: true },
+)
+
+onBeforeUnmount(() => {
+  clearEnterTimer()
+  clearLeaveTimer()
+})
 </script>
 
 <template>
   <div class="table-node-wrapper">
+    <div v-if="isLoading" class="table-node__loading" role="status" aria-live="polite">
+      <template v-if="showLoadingIndicator">
+        <slot name="loading" :is-loading="isLoading">
+          <span class="table-node__spinner animate-spin" aria-hidden="true" />
+          <span class="sr-only">Loading</span>
+        </slot>
+      </template>
+    </div>
     <table
+      v-else
       class="text-sm table-node"
-      :class="{ 'table-node--loading': isLoading }"
       :aria-busy="isLoading"
     >
       <thead>
@@ -107,14 +177,6 @@ const bodyRows = computed(() => props.node.rows ?? [])
         </tr>
       </tbody>
     </table>
-    <transition name="table-node-fade">
-      <div v-if="isLoading" class="table-node__loading" role="status" aria-live="polite">
-        <slot name="loading" :is-loading="isLoading">
-          <span class="table-node__spinner animate-spin" aria-hidden="true" />
-          <span class="sr-only">Loading</span>
-        </slot>
-      </div>
-    </transition>
   </div>
 </template>
 
@@ -129,6 +191,10 @@ const bodyRows = computed(() => props.node.rows ?? [])
   border: 1px solid var(--table-border, #e5e7eb);
   border-radius: 8px;
   margin: 0.75em 0;
+}
+
+.table-node-wrapper:has(.table-node__loading) {
+  border-color: transparent;
 }
 
 .table-node {
@@ -172,42 +238,11 @@ const bodyRows = computed(() => props.node.rows ?? [])
   word-break: normal;
 }
 
-.table-node--loading {
-  /* Loading state keeps the skeleton shimmer; layout is already fixed above. */
-}
-
-.table-node--loading tbody td {
-  position: relative;
-  overflow: hidden;
-}
-
-.table-node--loading tbody td > * {
-  visibility: hidden;
-}
-
-.table-node--loading tbody td::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: 0.25rem;
-  background: linear-gradient(
-    90deg,
-    rgba(148, 163, 184, 0.16) 25%,
-    rgba(148, 163, 184, 0.28) 50%,
-    rgba(148, 163, 184, 0.16) 75%
-  );
-  background-size: 200% 100%;
-  animation: table-node-shimmer 1.2s linear infinite;
-  will-change: background-position;
-}
-
 .table-node__loading {
-  position: absolute;
-  inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  pointer-events: none;
+  min-height: 60px;
 }
 
 .table-node__spinner {
@@ -217,16 +252,6 @@ const bodyRows = computed(() => props.node.rows ?? [])
   border: 2px solid rgba(94, 104, 121, 0.25);
   border-top-color: rgba(94, 104, 121, 0.8);
   will-change: transform;
-}
-
-.table-node-fade-enter-active,
-.table-node-fade-leave-active {
-  transition: opacity 0.18s ease;
-}
-
-.table-node-fade-enter-from,
-.table-node-fade-leave-to {
-  opacity: 0;
 }
 
 /* 表格单元格内的 NodeRenderer 禁用 content-visibility 的占位行为，避免“高但空”的问题 */
@@ -256,18 +281,6 @@ const bodyRows = computed(() => props.node.rows ?? [])
   overflow-wrap: inherit;
   word-break: inherit;
   max-width: none;
-}
-
-@keyframes table-node-shimmer {
-  0% {
-    background-position: 0% 0%;
-  }
-  50% {
-    background-position: 100% 0%;
-  }
-  100% {
-    background-position: 200% 0%;
-  }
 }
 
 .hr + .table-node-wrapper {

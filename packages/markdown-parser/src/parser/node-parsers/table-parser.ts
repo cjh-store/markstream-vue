@@ -113,7 +113,7 @@ export function parseTable(
     type: 'table',
     header: headerRow,
     rows,
-    loading: tokens[index].loading ?? false,
+    loading: options?.final ? false : (tokens[index].loading ?? false) || rows.length === 0,
     raw: [headerRow, ...rows].map(row => row.raw).join('\n'),
   }
 

@@ -2,7 +2,7 @@
 import type { BaseNode, MarkdownIt, ParsedNode, ParseOptions } from 'stream-markdown-parser'
 import type { VisibilityHandle } from '../../composables/viewportPriority'
 import { getMarkdown, parseMarkdownToStructure } from 'stream-markdown-parser'
-import { computed, defineAsyncComponent, markRaw, nextTick, onBeforeUnmount, provide, reactive, ref, useAttrs, watch } from 'vue'
+import { computed, defineAsyncComponent, markRaw, nextTick, onBeforeUnmount, provide, reactive, ref, shallowRef, useAttrs, watch } from 'vue'
 import AdmonitionNode from '../../components/AdmonitionNode'
 import BlockquoteNode from '../../components/BlockquoteNode'
 import CheckboxNode from '../../components/CheckboxNode'
@@ -249,7 +249,7 @@ const mergedParseOptions = computed(() => {
   } as ParseOptions
 })
 
-const parsedNodes = computed<ParsedNode[]>(() => {
+const rawParsedNodes = computed<ParsedNode[]>(() => {
   // 解析 content 字符串为节点数组
   // If the consumer passed an explicit `nodes` array, return a shallow
   // copy so the computed value has a new identity whenever the caller
@@ -275,6 +275,83 @@ const parsedNodes = computed<ParsedNode[]>(() => {
   }
   return []
 })
+const parsedNodes = shallowRef<ParsedNode[]>([])
+
+function getNodeRawText(node?: ParsedNode) {
+  if (!node)
+    return ''
+  if (typeof node.raw === 'string' && node.raw)
+    return node.raw
+  const content = (node as any).content
+  if (typeof content === 'string' && content)
+    return content
+  const children = (node as any).children
+  if (Array.isArray(children))
+    return children.map((child: ParsedNode) => getNodeRawText(child)).join('')
+  return ''
+}
+
+function looksLikeStreamingTableFallback(node?: ParsedNode) {
+  if (!node)
+    return true
+  const raw = getNodeRawText(node).trim()
+  if (!raw)
+    return true
+
+  const lines = raw
+    .split(/\n/)
+    .map(line => line.trim())
+    .filter(Boolean)
+  const pipeLines = lines.filter(line => line.includes('|'))
+
+  if (pipeLines.length >= 2)
+    return true
+
+  if (pipeLines.length >= 1) {
+    return pipeLines.some(line =>
+      /^\|/.test(line)
+      || /\|$/.test(line)
+      || /\|\s*:?-+:?\s*(?:\||$)/.test(line),
+    )
+  }
+
+  return false
+}
+
+function stabilizeStreamingTables(nextNodes: ParsedNode[], previousNodes: ParsedNode[]) {
+  if (props.final === true || !props.content || !previousNodes.length)
+    return nextNodes
+
+  const result = nextNodes.slice()
+  let changed = false
+
+  previousNodes.forEach((previousNode, index) => {
+    if (previousNode?.type !== 'table' || !previousNode.loading)
+      return
+
+    const nextNode = result[index]
+    if (nextNode?.type === 'table')
+      return
+    if (!looksLikeStreamingTableFallback(nextNode))
+      return
+
+    if (index < result.length)
+      result[index] = previousNode
+    else
+      result.splice(index, 0, previousNode)
+    changed = true
+  })
+
+  return changed ? markRaw(result) : nextNodes
+}
+
+watch(
+  [() => rawParsedNodes.value, () => props.final, () => props.content],
+  ([nextNodes]) => {
+    parsedNodes.value = stabilizeStreamingTables(nextNodes, parsedNodes.value)
+  },
+  { immediate: true },
+)
 const maxLiveNodesResolved = computed(() => Math.max(1, props.maxLiveNodes ?? 320))
 const virtualizationEnabled = computed(() => {
   if ((props.maxLiveNodes ?? 0) <= 0)
@@ -1499,6 +1576,7 @@ const renderedItems = computed(() => {
       component: getNodeComponent(item.node, language),
       bindings: getBindingsFor(item.node, language),
       isCodeBlock: item.node.type === 'code_block',
+      useEnterTransition: item.node.type !== 'code_block' && item.node.type !== 'table',
       indexKey: `${indexPrefix.value}-${item.index}`,
     }
   })
@@ -1623,7 +1701,7 @@ function handleContainerMouseout(event: MouseEvent) {
         >
           <!-- Skip wrapping code_block nodes in transitions to avoid touching Monaco editor internals -->
           <transition
-            v-if="!item.isCodeBlock && props.typewriter !== false"
+            v-if="item.useEnterTransition && props.typewriter !== false"
             name="typewriter"
             appear
           >

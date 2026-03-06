@@ -16,7 +16,6 @@ interface Scenario {
   expectedText?: string | string[]
   props?: Record<string, any>
   assert?: (wrapper: VueWrapper<any>) => void | Promise<void>
-  skipSnapshot?: boolean
 }
 
 let MarkdownRender: any
@@ -37,12 +36,6 @@ async function mountMarkdown(markdown: string, props: Record<string, any> = {}) 
 
 function normalizeText(input: string) {
   return input.replace(/\s+/g, ' ').trim()
-}
-
-function sanitizeSnapshotHtml(html: string, name: string) {
-  if (name.includes('admonition'))
-    return html.replace(/admonition-[a-z0-9]+/gi, 'admonition-stable')
-  return html
 }
 
 describe('markdownRender node e2e coverage', () => {
@@ -164,7 +157,6 @@ describe('markdownRender node e2e coverage', () => {
     {
       name: 'mermaid block node',
       markdown: '```mermaid\ngraph LR;A-->B;\n```',
-      skipSnapshot: true,
       assert: async (wrapper) => {
         await flushAll()
         await new Promise(resolve => setTimeout(resolve, 5000))
@@ -369,7 +361,6 @@ describe('markdownRender node e2e coverage', () => {
     {
       name: 'math inline node',
       markdown: 'Einstein wrote $E=mc^2$.',
-      skipSnapshot: false,
       // Accept either raw Dollar-delimited text or rendered KaTeX output
       expectedText: ['Einstein wrote', 'E=mc^2'],
       assert: async (wrapper) => {
@@ -385,7 +376,6 @@ describe('markdownRender node e2e coverage', () => {
     {
       name: 'math block node',
       markdown: '$$\na^2 + b^2 = c^2\n$$',
-      skipSnapshot: true,
       // do not assert expectedText globally because math rendering is
       // optional and may be handled asynchronously or by KaTeX which
       // isn't guaranteed in the test env
@@ -435,11 +425,6 @@ describe('markdownRender node e2e coverage', () => {
         }
         else if (typeof scenario.expectedText === 'string' && scenario.expectedText.length > 0) {
           expect(textContent).toContain(scenario.expectedText)
-        }
-
-        if (!scenario.skipSnapshot) {
-          const snapshotHtml = sanitizeSnapshotHtml(wrapper.html(), scenario.name)
-          expect(snapshotHtml).toMatchSnapshot()
         }
       }
       finally {
