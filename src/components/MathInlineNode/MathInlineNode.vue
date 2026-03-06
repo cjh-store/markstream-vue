@@ -85,7 +85,11 @@ async function renderMath() {
         if (katex) {
           try {
             const displayMode = props.node.markup === '$$'
-            const html = katex.renderToString(props.node.content, { throwOnError: props.node.loading, displayMode })
+            const html = katex.renderToString(props.node.content, {
+              throwOnError: props.node.loading,
+              displayMode,
+              strict: 'ignore',
+            })
             renderingLoading.value = false
             mathElement.value.innerHTML = html
             hasRenderedOnce = true

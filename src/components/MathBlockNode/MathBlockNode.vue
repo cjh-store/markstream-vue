@@ -95,6 +95,7 @@ async function renderMath() {
             const html = katex.renderToString(props.node.content, {
               throwOnError: props.node.loading,
               displayMode: true,
+              strict: 'ignore',
             })
             mathBlockElement.value.innerHTML = html
             hasRenderedOnce = true
