@@ -937,6 +937,17 @@ export function parseMarkdownToStructure(
   // Ensure markdown is a string — guard against null/undefined inputs from callers
   // todo: 下面的特殊 math 其实应该更精确匹配到() 或者 $$ $$ 或者 \[ \] 内部的内容
   let safeMarkdown = (markdown ?? '').toString().replace(/([^\\])\r(ight|ho)/g, '$1\\r$2').replace(/([^\\])\n(abla|eq|ot|exists)/g, '$1\\n$2')
+
+  // 表格行内公式中未转义的 | 会被 markdown-it 当作表格列分隔符，导致表格解析错位。
+  // 将表格行（以 | 开头）内 $...$ 区域中的裸 | 替换为 \vert（KaTeX 等效写法）。
+  safeMarkdown = safeMarkdown.replace(/^(\|.*)$/gm, (line) => {
+    return line.replace(/\$([^$\n]+?)\$/g, (match, inner: string) => {
+      if (!inner.includes('|'))
+        return match
+      return `$${inner.replace(/(?<!\\)\|/g, '\\vert ')}$`
+    })
+  })
+
   if (!isFinal) {
     if (safeMarkdown.endsWith('- *')) {
       // 放置markdown 解析 - * 会被处理成多个 ul >li 嵌套列表
