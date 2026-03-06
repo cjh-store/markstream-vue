@@ -1,3 +1,11 @@
+## [1.0.1](https://github.com/cjh-store/markstream-vue/compare/v1.0.0...v1.0.1) (2026-03-06)
+
+
+### Bug Fixes
+
+* **ci:** 修复 semantic-release 不识别 emoji 前缀的 commit 格式 ([df6754f](https://github.com/cjh-store/markstream-vue/commit/df6754f1fe707099f95959cc7c5f4764f7465696))
+* **parser:** 兼容表格内公式中未转义的管道符 ([b11f714](https://github.com/cjh-store/markstream-vue/commit/b11f714f1b78b3606bd4ddc0d8f4db690705a9b9))
+
 # 1.0.0 (2026-03-06)
 
 
