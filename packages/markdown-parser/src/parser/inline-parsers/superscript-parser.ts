@@ -22,10 +22,7 @@ export function parseSuperscriptToken(
   }
 
   // Parse inner tokens to handle nested elements
-  children.push(...parseInlineTokens(innerTokens, undefined, undefined, {
-    requireClosingStrong: options?.requireClosingStrong,
-    customHtmlTags: options?.customHtmlTags,
-  }))
+  children.push(...parseInlineTokens(innerTokens, undefined, undefined, options as any))
 
   const node: SuperscriptNode = {
     type: 'superscript',

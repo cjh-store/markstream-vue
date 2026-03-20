@@ -1110,6 +1110,7 @@ export function parseMarkdownToStructure(
   const internalOptions = {
     ...options,
     validateLink,
+    __markdownIt: md,
     __sourceMarkdown: safeMarkdown,
     __customHtmlBlockCursor: 0,
   } as any
@@ -1229,11 +1230,7 @@ export function processTokens(tokens: MarkdownToken[], options?: ParseOptions): 
         //   historical behavior and emit them as top-level blocks (not wrapped in
         //   a paragraph), since they represent block-like HTML structures.
         {
-          const parsed = parseInlineTokens(token.children || [], String(token.content ?? ''), undefined, {
-            requireClosingStrong: options?.requireClosingStrong,
-            customHtmlTags: options?.customHtmlTags,
-            validateLink: options?.validateLink,
-          })
+          const parsed = parseInlineTokens(token.children || [], String(token.content ?? ''), undefined, options as any)
           if (parsed.length === 0) {
             // no-op (matches previous behavior)
           }

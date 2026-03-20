@@ -1,4 +1,5 @@
-import type { MarkdownToken, ParsedNode, TextNode } from '../../types'
+import type { MarkdownIt } from 'markdown-it-ts'
+import type { MarkdownToken, ParseOptions, ParsedNode, TextNode } from '../../types'
 import { parseCheckboxInputToken, parseCheckboxToken } from './checkbox-parser'
 import { parseEmojiToken } from './emoji-parser'
 import { parseEmphasisToken } from './emphasis-parser'
@@ -23,6 +24,9 @@ import { parseTextToken } from './text-parser'
 const STRONG_PAIR_RE = /\*\*([\s\S]*?)\*\*/
 const STRIKETHROUGH_RE = /[^~]*~{2,}[^~]+/
 const HAS_STRONG_RE = /\*\*/
+const INLINE_REPARSE_MARKER_RE = /\*\*\*|___|\*\*|__|\*|_|~~/
+const ESCAPED_PUNCTUATION_RE = /\\([\\()[\]`$|*_\-!])/g
+const ESCAPABLE_PUNCTUATION = new Set(['\\', '(', ')', '[', ']', '`', '$', '|', '*', '_', '-', '!'])
 
 // Helper: detect likely URLs/hrefs (autolinks). Extracted so the
 // detection logic is easy to tweak and test.
@@ -42,6 +46,37 @@ function countUnescapedAsterisks(str: string): number {
     i++
   }
   return count
+}
+
+function findNextUnescapedAsterisk(rawContent: string | undefined, startContentIndex = 0): number {
+  if (!rawContent)
+    return -1
+
+  let contentIndex = 0
+
+  for (let rawIndex = 0; rawIndex < rawContent.length; rawIndex++) {
+    const char = rawContent[rawIndex]
+    const nextChar = rawContent[rawIndex + 1]
+
+    if (char === '\\' && nextChar && ESCAPABLE_PUNCTUATION.has(nextChar)) {
+      if (nextChar === '*' && contentIndex >= startContentIndex) {
+        contentIndex++
+        rawIndex++
+        continue
+      }
+
+      contentIndex++
+      rawIndex++
+      continue
+    }
+
+    if (char === '*' && contentIndex >= startContentIndex)
+      return contentIndex
+
+    contentIndex++
+  }
+
+  return -1
 }
 
 const WORD_CHAR_RE = /[\p{L}\p{N}]/u
@@ -84,7 +119,7 @@ export function parseInlineTokens(
   tokens: MarkdownToken[],
   raw?: string,
   pPreToken?: MarkdownToken,
-  options?: { requireClosingStrong?: boolean, customHtmlTags?: readonly string[], validateLink?: (url: string) => boolean },
+  options?: ParseOptions,
 ): ParsedNode[] {
   if (!tokens || tokens.length === 0)
     return []
@@ -102,44 +137,88 @@ export function parseInlineTokens(
   }
 
   function handleEmphasisAndStrikethrough(content: string, token: MarkdownToken): boolean {
-    // strikethrough (~~)
+    const rawSource = tokens.length === 1 ? raw : String(token.content ?? '')
+    const markerCandidates: Array<{ type: 'strong' | 'emphasis' | 'strikethrough', index: number }> = []
+
     if (STRIKETHROUGH_RE.test(content)) {
-      let idx = content.indexOf('~~')
-      if (idx === -1)
-        idx = 0
-      const _text = content.slice(0, idx)
-      if (_text) {
-        if (currentTextNode) {
-          currentTextNode.content += _text
-          currentTextNode.raw += _text
-        }
-        else {
-          currentTextNode = {
-            type: 'text',
-            content: String(_text ?? ''),
-            raw: String(token.content ?? ''),
-          }
-          result.push(currentTextNode)
-        }
+      const idx = content.indexOf('~~')
+      if (idx !== -1)
+        markerCandidates.push({ type: 'strikethrough', index: idx })
+    }
+
+    if (HAS_STRONG_RE.test(content)) {
+      const idx = content.indexOf('**')
+      if (idx !== -1)
+        markerCandidates.push({ type: 'strong', index: idx })
+    }
+
+    if (/[^*]*\*[^*]+/.test(content)) {
+      const idx = rawSource
+        ? findNextUnescapedAsterisk(rawSource, 0)
+        : content.indexOf('*')
+      if (rawSource && idx === -1)
+        return false
+      if (idx !== -1)
+        markerCandidates.push({ type: 'emphasis', index: idx })
+    }
+
+    markerCandidates.sort((a, b) => {
+      if (a.index !== b.index)
+        return a.index - b.index
+
+      if (a.type === b.type)
+        return 0
+
+      if (a.type === 'strong')
+        return -1
+      if (b.type === 'strong')
+        return 1
+      return 0
+    })
+
+    const nextMarker = markerCandidates[0]
+    if (!nextMarker)
+      return false
+
+    if (nextMarker.type === 'strikethrough') {
+      const idx = nextMarker.index
+      const beforeText = idx > -1 ? content.slice(0, idx) : ''
+      if (beforeText)
+        pushText(beforeText, beforeText)
+
+      if (idx === -1) {
+        i++
+        return true
       }
-      const strikethroughContent = content.slice(idx)
+
+      const closeIdx = content.indexOf('~~', idx + 2)
+      const inner = closeIdx === -1 ? content.slice(idx + 2) : content.slice(idx + 2, closeIdx)
+      const after = closeIdx === -1 ? '' : content.slice(closeIdx + 2)
+
       const { node } = parseStrikethroughToken([
-        { type: 's_open', tag: 's', content: '', markup: '*', info: '', meta: null },
-        { type: 'text', tag: '', content: strikethroughContent.replace(/~/g, ''), markup: '', info: '', meta: null },
-        { type: 's_close', tag: 's', content: '', markup: '*', info: '', meta: null },
-      ], 0)
+        { type: 's_open', tag: 's', content: '', markup: '~~', info: '', meta: null },
+        { type: 'text', tag: '', content: inner, markup: '', info: '', meta: null },
+        { type: 's_close', tag: 's', content: '', markup: '~~', info: '', meta: null },
+      ], 0, options as any)
+
       resetCurrentTextNode()
       pushNode(node)
+
+      if (after) {
+        handleToken({
+          type: 'text',
+          content: after,
+          raw: after,
+        })
+        i--
+      }
+
       i++
       return true
     }
 
-    // strong (**)
-    // Note: markdown-it may sometimes leave `**...**` as a plain text token
-    // (e.g. when wrapping inline HTML like `<font>...</font>`). In that case,
-    // we still want to recognize and parse the first strong pair.
-    if (HAS_STRONG_RE.test(content)) {
-      const openIdx = content.indexOf('**')
+    if (nextMarker.type === 'strong') {
+      const openIdx = nextMarker.index
       const beforeText = openIdx > -1 ? content.slice(0, openIdx) : ''
       if (beforeText) {
         pushText(beforeText, beforeText)
@@ -150,25 +229,17 @@ export function parseInlineTokens(
         return true
       }
 
-      // Check if the leading ** are from escaped asterisks
-      // by checking if the raw markdown has \* at the corresponding position
       if (raw && openIdx === 0) {
-        // Find where this content would start in raw
-        // We need to check if the position in raw has \*
         let rawHasEscapedAsteriskAtStart = false
         let asteriskCount = 0
-        // Count how many asterisks are at the start of content
         while (asteriskCount < content.length && content[asteriskCount] === '*') {
           asteriskCount++
         }
-        // Check if raw has \* at the beginning (accounting for escaped backslashes)
         if (raw.startsWith('\\*')) {
           rawHasEscapedAsteriskAtStart = true
         }
 
-        // If raw starts with escaped asterisks, don't parse as strong
         if (rawHasEscapedAsteriskAtStart) {
-          // Check if all asterisks in content prefix are escaped in raw
           let escapedCount = 0
           let j = 0
           while (j < raw.length && escapedCount < asteriskCount) {
@@ -177,14 +248,12 @@ export function parseInlineTokens(
               j += 2
             }
             else if (raw[j] === '*') {
-              // Found unescaped asterisk, stop checking
               break
             }
             else {
               j++
             }
           }
-          // If all leading asterisks in content are escaped in raw, treat as text
           if (escapedCount >= 2) {
             pushText(content, content)
             i++
@@ -193,8 +262,6 @@ export function parseInlineTokens(
         }
       }
 
-      // Fallback check: count asterisks in content vs unescaped asterisks in raw
-      // This handles cases like `需方：\*\*\*\*\*\*有限公司`
       if (raw) {
         const contentAsteriskCount = (content.match(/\*/g) || []).length
         const rawAsteriskCount = countUnescapedAsterisks(raw)
@@ -206,7 +273,6 @@ export function parseInlineTokens(
       }
 
       const runInfo = getAsteriskRunInfo(content, openIdx)
-      // find the first matching closing ** pair in the content
       const exec = STRONG_PAIR_RE.exec(content)
       let inner = ''
       let after = ''
@@ -231,9 +297,7 @@ export function parseInlineTokens(
         }
       }
       else {
-        // no closing pair found: decide behavior based on strict option
         if (requireClosingStrong) {
-          // 严格模式：不要硬匹配 strong，保留原文为普通文本
           pushText(content.slice(beforeText.length), content.slice(beforeText.length))
           i++
           return true
@@ -243,16 +307,11 @@ export function parseInlineTokens(
           i++
           return true
         }
-        // 非严格模式（原行为）：mid-state, take rest as inner
         inner = content.slice(openIdx + 2)
         after = ''
       }
 
-      // Special case: if the matched strong is empty (e.g., `****`) and the
-      // remaining content is also just asterisks, treat the entire thing as text
-      // to avoid creating empty strong nodes from escaped asterisks.
       if (!inner && /^\*+$/.test(after)) {
-        // The entire content is just asterisks, treat as text
         pushText(content, content)
         i++
         return true
@@ -280,25 +339,29 @@ export function parseInlineTokens(
       return true
     }
 
-    // emphasis (*)
-    if (/[^*]*\*[^*]+/.test(content)) {
-      let idx = content.indexOf('*')
+    if (nextMarker.type === 'emphasis') {
+      let idx = nextMarker.index
       if (idx === -1)
         idx = 0
       const _text = content.slice(0, idx)
-      if (_text) {
-        if (currentTextNode) {
-          currentTextNode.content += _text
-          currentTextNode.raw += _text
-        }
-        else {
-          currentTextNode = { type: 'text', content: String(_text ?? ''), raw: String(token.content ?? '') }
-          result.push(currentTextNode)
-        }
-      }
+      if (_text)
+        pushText(_text, _text)
       const runInfo = getAsteriskRunInfo(content, idx)
-      const closeIndex = content.indexOf('*', idx + 1)
-      if (closeIndex === -1 && runInfo.intraword) {
+      const closeIndex = rawSource
+        ? findNextUnescapedAsterisk(rawSource, idx + 1)
+        : content.indexOf('*', idx + 1)
+      const nextInlineToken = tokens[i + 1]
+      if (
+        options?.final
+        && nextInlineToken?.type === 'em_open'
+        && closeIndex !== -1
+        && content.slice(idx + 1, closeIndex).trim() !== content.slice(idx + 1, closeIndex)
+      ) {
+        pushText(content.slice(idx), content.slice(idx))
+        i++
+        return true
+      }
+      if (closeIndex === -1 && (options?.final || runInfo.intraword || !isWordChar(content[idx + 1]))) {
         pushText(content.slice(idx), content.slice(idx))
         i++
         return true
@@ -310,14 +373,16 @@ export function parseInlineTokens(
         { type: 'em_close', tag: 'em', content: '', markup: '*', info: '', meta: null },
       ], 0, options as any)
 
+      resetCurrentTextNode()
+      pushNode(node)
+
       if (closeIndex !== -1 && closeIndex < content.length - 1) {
         const afterContent = content.slice(closeIndex + 1)
         if (afterContent) {
           handleToken({ type: 'text', content: afterContent, raw: afterContent } as unknown as MarkdownToken)
+          i--
         }
       }
-      resetCurrentTextNode()
-      pushNode(node)
       i++
       return true
     }
@@ -416,6 +481,34 @@ export function parseInlineTokens(
     }
     i++
     return true
+  }
+
+  function tryReparseCollapsedInlineText(rawContent: string): ParsedNode[] | null {
+    const md = (options as any)?.__markdownIt as MarkdownIt | undefined
+    if (!md || !options?.final)
+      return null
+    if (tokens.length <= 1 || !tokens.some(token => token?.type === 'math_inline'))
+      return null
+    if (!INLINE_REPARSE_MARKER_RE.test(rawContent))
+      return null
+
+    const reparsed = md.parseInline(rawContent, { __markstreamFinal: true }) as unknown as MarkdownToken[]
+    if (!Array.isArray(reparsed) || reparsed.length === 0)
+      return null
+
+    const inlineToken = reparsed.find(token => token?.type === 'inline')
+    const children = (inlineToken?.children ?? [])
+      .filter(child => !(child?.type === 'text' && String(child.content ?? '') === ''))
+
+    if (!children.length)
+      return null
+    if (!children.some(child => child?.type !== 'text'))
+      return null
+    if (children.length === 1 && children[0]?.type === 'text' && String(children[0].content ?? '') === rawContent)
+      return null
+
+    const reparsedNodes = parseInlineTokens(children, rawContent, pPreToken, options)
+    return reparsedNodes.length ? reparsedNodes : null
   }
 
   function pushParsed(node: ParsedNode) {
@@ -782,6 +875,7 @@ export function parseInlineTokens(
 
     const hasInlineCandidates = (
       content.includes('*')
+      || content.includes('_')
       || content.includes('~')
       || content.includes('`')
       || content.includes('[')
@@ -816,6 +910,15 @@ export function parseInlineTokens(
     // allowing fallback for later tricky links in the same inline run.
     if (tokens[i + 1]?.type !== 'link_open' && handleInlineLinkContent(content, token))
       return
+
+    const reparsedNodes = tryReparseCollapsedInlineText(rawContent)
+    if (reparsedNodes) {
+      resetCurrentTextNode()
+      for (const node of reparsedNodes)
+        pushNode(node)
+      i++
+      return
+    }
 
     if (handleEmphasisAndStrikethrough(content, token))
       return

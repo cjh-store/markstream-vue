@@ -1061,13 +1061,29 @@ watch(
 
 const stopLoadingWatch = watch(
   () => [props.loading, viewportReady.value],
-  async ([loaded, visible]) => {
+  async ([loaded, visible], previous) => {
     if (!visible)
       return
     if (loaded)
       return
+    const prevLoaded = previous?.[0]
+    const loadingJustFinished = prevLoaded !== undefined && prevLoaded !== false
     await nextTick()
     safeRaf(() => {
+      if (loadingJustFinished && editorCreated.value) {
+        if (isDiff.value && codeEditor.value) {
+          const pendingCreation = createEditorPromise
+          if (pendingCreation) {
+            pendingCreation.finally(() => {
+              if (codeEditor.value)
+                void ensureEditorCreation(codeEditor.value)
+            })
+          }
+          else {
+            void ensureEditorCreation(codeEditor.value)
+          }
+        }
+      }
       if (!isCollapsed.value) {
         if (isExpanded.value)
           updateExpandedHeight()

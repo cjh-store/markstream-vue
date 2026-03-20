@@ -13,3 +13,11 @@ defineProps<{
     class="inline text-[85%] px-1 py-0.5 rounded font-mono bg-[hsl(var(--secondary))] whitespace-normal break-words max-w-full before:content-[''] after:content-['']"
   >{{ node.code }}</code>
 </template>
+
+<style scoped>
+code {
+  color: hsl(var(--foreground));
+  background-color: hsl(var(--secondary));
+  border: 1px solid hsl(var(--border) / 0.9);
+}
+</style>

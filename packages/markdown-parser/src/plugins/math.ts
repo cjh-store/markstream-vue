@@ -224,6 +224,12 @@ export function normalizeStandaloneBackslashT(s: string, opts?: MathOptions) {
   result = result.replace(SPAN_CURLY_RE, 'span\\{$1\\}')
     .replace(OPERATORNAME_SPAN_RE, '\\operatorname{span}\\{$1\\}')
 
+  // Some callers provide math content from JS/JSON-escaped strings, which
+  // leaves TeX commands as `\\frac`, `\\nabla`, `\\!` at runtime. KaTeX treats
+  // that leading `\\` as a line break, so collapse only the command-style
+  // prefixes back to a single backslash. Keep true row breaks like `\\\\\n`.
+  result = result.replace(/\\\\(?=(?:[A-Za-z]|[!%{},;:_#&$]))/g, '\\')
+
   // If a single backslash appears immediately before a newline (e.g. "... 8 \n5..."),
   // it's likely intended as a LaTeX linebreak (`\\`). Double it, but avoid
   // changing already escaped `\\` sequences.

@@ -69,11 +69,7 @@ export function parseContainer(
         const _children = i !== -1 ? childrenArr.slice(0, i) : childrenArr
         children.push({
           type: 'paragraph',
-          children: parseInlineTokens(_children || [], undefined, undefined, {
-            requireClosingStrong: options?.requireClosingStrong,
-            customHtmlTags: options?.customHtmlTags,
-            validateLink: options?.validateLink,
-          }),
+          children: parseInlineTokens(_children || [], undefined, undefined, options as any),
           raw: String(contentToken.content ?? '').replace(/\n:+$/, '').replace(/\n\s*:::\s*$/, ''),
         })
       }

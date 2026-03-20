@@ -57,6 +57,15 @@ describe('normalizeStandaloneBackslashT direct tests', () => {
     expect(out).toBe('\\operatorname{span}\\{\\boldsymbol{\\alpha}\\}')
   })
 
+  it('collapses JSON-style doubled command prefixes but keeps TeX row breaks', () => {
+    const out = normalizeStandaloneBackslashT(String.raw`\\begin{bmatrix} a \\\\ b \\end{bmatrix} = \\frac{1}{2}`)
+    expect(out).toContain(String.raw`\begin{bmatrix}`)
+    expect(out).toContain(String.raw`\end{bmatrix}`)
+    expect(out).toContain(String.raw`\frac{1}{2}`)
+    expect(out).not.toContain(String.raw`\\begin`)
+    expect(out).not.toContain(String.raw`\\frac`)
+  })
+
   it('\n', () => {
     const out = normalizeStandaloneBackslashT('\displaystyle \nabla\cdot\mathbf{E}= \frac{\rho}{\varepsilon_{0}}')
     expect(out).toMatchInlineSnapshot(`

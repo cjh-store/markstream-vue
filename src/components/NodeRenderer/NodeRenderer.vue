@@ -159,6 +159,20 @@ function logPerf(label: string, data: Record<string, unknown>) {
   console.info(`[markstream-vue][perf] ${label}`, data)
 }
 
+function hasOverflowScrollStyle(style: CSSStyleDeclaration | null | undefined) {
+  if (!style)
+    return false
+  const overflowY = (style.overflowY || '').toLowerCase()
+  const overflow = (style.overflow || '').toLowerCase()
+  return SCROLL_PARENT_OVERFLOW_RE.test(overflowY) || SCROLL_PARENT_OVERFLOW_RE.test(overflow)
+}
+
+function isActuallyScrollableElement(element: HTMLElement) {
+  const verticalOverflow = Math.ceil(element.scrollHeight) > Math.ceil(element.clientHeight) + 1
+  const horizontalOverflow = Math.ceil(element.scrollWidth) > Math.ceil(element.clientWidth) + 1
+  return verticalOverflow || horizontalOverflow
+}
+
 function resolveViewportRoot(node?: HTMLElement | null) {
   if (typeof window === 'undefined')
     return null
@@ -172,9 +186,7 @@ function resolveViewportRoot(node?: HTMLElement | null) {
     if (current === doc.body || current === rootScrollable)
       break
     const style = window.getComputedStyle(current)
-    const overflowY = (style.overflowY || '').toLowerCase()
-    const overflow = (style.overflow || '').toLowerCase()
-    if (SCROLL_PARENT_OVERFLOW_RE.test(overflowY) || SCROLL_PARENT_OVERFLOW_RE.test(overflow))
+    if (hasOverflowScrollStyle(style) && isActuallyScrollableElement(current))
       return current
     current = current.parentElement
   }
@@ -400,8 +412,9 @@ const previousRenderContext = ref<{ key: typeof props.indexKey, total: number }>
   total: 0,
 })
 const adaptiveBatchSize = ref(Math.max(1, resolvedBatchSize.value || 1))
-const nodeVisibilityState = reactive<Record<number, boolean>>({})
+const visibleNodeIndices = ref<Set<number>>(new Set())
 const nodeVisibilityHandles = new Map<number, VisibilityHandle>()
+const nodeVisibilityWatchStops = new Map<number, () => void>()
 const nodeVisibilityFallbackTimers = new Map<number, number>()
 const nodeSlotElements = new Map<number, HTMLElement | null>()
 const nodeSlotVersion = ref(0)
@@ -870,6 +883,30 @@ function bumpNodeSlotVersion() {
   nodeSlotVersion.value += 1
 }
 
+function setNodeVisibleState(index: number, visible: boolean) {
+  const current = visibleNodeIndices.value
+  const hasIndex = current.has(index)
+  if (visible) {
+    if (hasIndex)
+      return
+    const next = new Set(current)
+    next.add(index)
+    visibleNodeIndices.value = next
+    return
+  }
+  if (!hasIndex)
+    return
+  const next = new Set(current)
+  next.delete(index)
+  visibleNodeIndices.value = next
+}
+
+function resetNodeVisibleState() {
+  if (visibleNodeIndices.value.size === 0)
+    return
+  visibleNodeIndices.value = new Set()
+}
+
 function cleanupNodeVisibility(maxIndex: number) {
   if (!nodeVisibilityHandles.size)
     return
@@ -883,7 +920,7 @@ function cleanupNodeVisibility(maxIndex: number) {
       handle.destroy()
       nodeVisibilityHandles.delete(index)
       if (deferNodes.value)
-        delete nodeVisibilityState[index]
+        setNodeVisibleState(index, false)
       clearVisibilityFallback(index)
       if (nodeSlotElements.delete(index))
         slotsChanged = true
@@ -895,7 +932,7 @@ function cleanupNodeVisibility(maxIndex: number) {
 
 function markNodeVisible(index: number, visible: boolean) {
   if (deferNodes.value)
-    nodeVisibilityState[index] = visible
+    setNodeVisibleState(index, visible)
   if (visible) {
     if (virtualizationEnabled.value)
       scheduleFocusSync()
@@ -913,10 +950,15 @@ function shouldRenderNode(index: number) {
     return true
   if (index < resolvedInitialBatch.value)
     return true
-  return nodeVisibilityState[index] === true
+  return visibleNodeIndices.value.has(index)
 }
 
 function destroyNodeHandle(index: number) {
+  const stopWatchingVisibility = nodeVisibilityWatchStops.get(index)
+  if (stopWatchingVisibility) {
+    stopWatchingVisibility()
+    nodeVisibilityWatchStops.delete(index)
+  }
   const handle = nodeVisibilityHandles.get(index)
   if (handle) {
     handle.destroy()
@@ -945,8 +987,6 @@ function setNodeSlotElement(index: number, el: HTMLElement | null) {
     destroyNodeHandle(index)
     if (el)
       markNodeVisible(index, true)
-    else if (deferNodes.value)
-      delete nodeVisibilityState[index]
     return
   }
 
@@ -961,8 +1001,6 @@ function setNodeSlotElement(index: number, el: HTMLElement | null) {
       destroyNodeHandle(index)
       if (el)
         markNodeVisible(index, true)
-      else if (deferNodes.value)
-        delete nodeVisibilityState[index]
       return
     }
   }
@@ -973,10 +1011,14 @@ function setNodeSlotElement(index: number, el: HTMLElement | null) {
     return
   }
 
+  if (visibleNodeIndices.value.has(index)) {
+    destroyNodeHandle(index)
+    markNodeVisible(index, true)
+    return
+  }
+
   if (!el) {
     destroyNodeHandle(index)
-    if (deferNodes.value)
-      delete nodeVisibilityState[index]
     return
   }
 
@@ -988,13 +1030,16 @@ function setNodeSlotElement(index: number, el: HTMLElement | null) {
   markNodeVisible(index, handle.isVisible.value)
   if (deferNodes.value)
     scheduleVisibilityFallback(index)
-  handle.whenVisible
-    .then(() => {
+  let stopWatchingVisibility: (() => void) | null = null
+  stopWatchingVisibility = watch(
+    () => handle.isVisible.value,
+    (visible) => {
+      if (!visible)
+        return
       clearVisibilityFallback(index)
       markNodeVisible(index, true)
-    })
-    .catch(() => {})
-    .finally(() => {
+      stopWatchingVisibility?.()
+      nodeVisibilityWatchStops.delete(index)
       // Once visibility is confirmed we can release the handle reference so
       // long-lived renders (no virtualization) do not leak observers.
       if (nodeVisibilityHandles.get(index) === handle)
@@ -1003,7 +1048,10 @@ function setNodeSlotElement(index: number, el: HTMLElement | null) {
         handle.destroy()
       }
       catch {}
-    })
+    },
+    { immediate: true },
+  )
+  nodeVisibilityWatchStops.set(index, stopWatchingVisibility)
 
   if (virtualizationEnabled.value)
     scheduleFocusSync()
@@ -1067,13 +1115,11 @@ function scheduleVisibilityFallback(index: number) {
     nodeVisibilityFallbackTimers.delete(index)
     if (!deferNodes.value)
       return
-    if (nodeVisibilityState[index] === true)
+    if (visibleNodeIndices.value.has(index))
       return
     const el = nodeSlotElements.get(index)
-    if (!el) {
-      delete nodeVisibilityState[index]
+    if (!el)
       return
-    }
 
     const root = resolveScrollContainer(el)
     const doc = el.ownerDocument || document
@@ -1112,8 +1158,7 @@ function autoDisableViewportPriority(reason: 'too-many-targets') {
       window.clearTimeout(timer)
   }
   nodeVisibilityFallbackTimers.clear()
-  for (const key of Object.keys(nodeVisibilityState))
-    delete nodeVisibilityState[key]
+  resetNodeVisibleState()
 }
 
 function scheduleBatch(increment: number, opts: { immediate?: boolean } = {}) {
@@ -1344,8 +1389,7 @@ watch(
       nodeVisibilityHandles.clear()
       for (const index of Array.from(nodeVisibilityFallbackTimers.keys()))
         clearVisibilityFallback(index)
-      for (const key of Object.keys(nodeVisibilityState))
-        delete nodeVisibilityState[key]
+      resetNodeVisibleState()
       for (const [index, el] of nodeSlotElements) {
         if (el)
           markNodeVisible(index, true)
@@ -1434,6 +1478,9 @@ onBeforeUnmount(() => {
   for (const handle of nodeVisibilityHandles.values())
     handle.destroy()
   nodeVisibilityHandles.clear()
+  for (const stopWatchingVisibility of nodeVisibilityWatchStops.values())
+    stopWatchingVisibility()
+  nodeVisibilityWatchStops.clear()
   for (const index of Array.from(nodeVisibilityFallbackTimers.keys()))
     clearVisibilityFallback(index)
   cleanupScrollListener()
