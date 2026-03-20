@@ -1,3 +1,10 @@
+## [1.2.1](https://github.com/cjh-store/markstream-vue/compare/v1.2.0...v1.2.1) (2026-03-20)
+
+
+### Bug Fixes
+
+* merge upstream stability fixes and math normalization ([10cfc06](https://github.com/cjh-store/markstream-vue/commit/10cfc061c0b9235266b4204a38126eee0847357f))
+
 # [1.2.0](https://github.com/cjh-store/markstream-vue/compare/v1.1.0...v1.2.0) (2026-03-20)
 
 
