@@ -1,3 +1,10 @@
+# [1.2.0](https://github.com/cjh-store/markstream-vue/compare/v1.1.0...v1.2.0) (2026-03-20)
+
+
+### Features
+
+* relax markdown spacing and hide expand controls by default ([de4970c](https://github.com/cjh-store/markstream-vue/commit/de4970c6bab93e28e97aff43e21649d1b7e40555))
+
 # [1.1.0](https://github.com/cjh-store/markstream-vue/compare/v1.0.1...v1.1.0) (2026-03-06)
 
 
