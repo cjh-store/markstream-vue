@@ -1842,7 +1842,7 @@ function handleContainerMouseout(event: MouseEvent) {
 <style scoped>
 .markdown-renderer {
   position: relative;
-  line-height: 1.72;
+  line-height: 1.3;
   /* 防止内容更新时的布局抖动 */
   contain: layout;
    /* 优化不可见时的渲染成本 */
