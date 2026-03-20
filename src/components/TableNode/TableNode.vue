@@ -205,7 +205,7 @@ onBeforeUnmount(() => {
 }
 
 .table-node thead {
-  background-color: var(--table-header-bg, #f9fafb);
+  background-color: var(--table-header-bg, #edf3ff);
 }
 
 .table-node th,
