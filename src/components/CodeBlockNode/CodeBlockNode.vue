@@ -28,7 +28,7 @@ const props = withDefaults(
     // Header configuration: allow consumers to toggle built-in buttons and header visibility
     showHeader: true,
     showCopyButton: true,
-    showExpandButton: true,
+    showExpandButton: false,
     showPreviewButton: true,
     showFontSizeButtons: true,
   },

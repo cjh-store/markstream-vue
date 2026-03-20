@@ -42,12 +42,12 @@
 
 ## 代码块全局选项（由 `MarkdownRender` 下发）
 
-这些 props 会被转发到 `CodeBlockNode` / `MarkdownCodeBlockNode`（但 **不会** 转发到 Mermaid/D2/Infographic 代码块，因为它们会路由到各自组件）：
+这些 props 会被转发到 `CodeBlockNode` / `MarkdownCodeBlockNode`：
 
 - `code-block-dark-theme`, `code-block-light-theme`
 - `code-block-monaco-options`
 - `code-block-min-width`, `code-block-max-width`
-- `code-block-props`（兜底：转发任意 CodeBlock props）
+- `code-block-props`（兜底：转发额外头部按钮 props；若 prop 名重合，Mermaid/D2/Infographic 也会复用这些共享开关）
 - `themes`（在安装 `stream-monaco` 时，会转发给其主题系统）
 
 注意：`code-block-monaco-options` 仅作用于 Monaco 版 `CodeBlockNode`。如果你把 `code_block` 覆盖成 `MarkdownCodeBlockNode`，此时 `code-block-dark-theme` / `code-block-light-theme` 应填写 Shiki 主题名，`themes` 为需要预加载的 Shiki 主题列表。
@@ -62,6 +62,8 @@
 - `show-preview-button`
 - `show-font-size-buttons`
 - `show-tooltips`（全局控制 `LinkNode` + 代码块节点的 tooltip）
+
+如果是经由 `MarkdownRender` 路由的 Mermaid/Infographic 代码块，也可以通过 `code-block-props.showFullscreenButton` 控制全屏按钮；D2 会复用共享头部开关，但不支持 fullscreen。
 
 更多细节请参考 `/zh/guide/codeblock-header` 及类型定义。
 

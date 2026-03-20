@@ -26,7 +26,7 @@ const props = withDefaults(
     showModeToggle: true,
     showCopyButton: true,
     showExportButton: true,
-    showFullscreenButton: true,
+    showFullscreenButton: false,
     showCollapseButton: true,
     showZoomControls: true,
     enableWheelZoom: false,

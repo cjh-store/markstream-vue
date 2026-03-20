@@ -1542,7 +1542,6 @@ const customComponentsMap = computed(() => {
   return getCustomNodeComponents(props.customId)
 })
 const indexPrefix = computed(() => (props.indexKey != null ? String(props.indexKey) : 'markdown-renderer'))
-const emptyBindings = {}
 const codeBlockBindings = computed(() => ({
   // streaming behavior control for CodeBlockNode
   stream: props.codeBlockStream,
@@ -1555,6 +1554,46 @@ const codeBlockBindings = computed(() => ({
   ...(typeof resolvedShowTooltips.value === 'boolean' ? { showTooltips: resolvedShowTooltips.value } : {}),
   ...(props.codeBlockProps || {}),
 }))
+const rawCodeBlockProps = computed<Record<string, any>>(() => props.codeBlockProps || {})
+
+function pickBindings(keys: string[]) {
+  const source = rawCodeBlockProps.value
+  const bindings: Record<string, any> = {}
+  for (const key of keys) {
+    if (key in source)
+      bindings[key] = source[key]
+  }
+  return bindings
+}
+
+const mermaidBindings = computed(() => pickBindings([
+  'showHeader',
+  'showModeToggle',
+  'showCopyButton',
+  'showExportButton',
+  'showFullscreenButton',
+  'showCollapseButton',
+  'showZoomControls',
+]))
+
+const infographicBindings = computed(() => pickBindings([
+  'showHeader',
+  'showModeToggle',
+  'showCopyButton',
+  'showExportButton',
+  'showFullscreenButton',
+  'showCollapseButton',
+  'showZoomControls',
+]))
+
+const d2Bindings = computed(() => pickBindings([
+  'showHeader',
+  'showModeToggle',
+  'showCopyButton',
+  'showExportButton',
+  'showCollapseButton',
+]))
+
 const nonCodeBindings = computed(() => ({
   // Forward `typewriter` flag to non-code node components so they can
   // opt in/out of enter transitions or other typewriter-like behaviour.
@@ -1636,10 +1675,16 @@ function getNodeComponent(node: ParsedNode, language?: string) {
 }
 
 function getBindingsFor(node: ParsedNode, language?: string) {
-  // For mermaid/infographic/d2 blocks we don't forward CodeBlock-specific props
   const lang = language ?? getCodeBlockLanguage(node)
-  if (lang === 'mermaid' || lang === 'infographic' || lang === 'd2' || lang === 'd2lang')
-    return emptyBindings
+  // ! 专用图形节点不吃 Monaco/Shiki 配置，只透传共享的头部按钮开关
+  if (lang === 'mermaid')
+    return mermaidBindings.value
+
+  if (lang === 'infographic')
+    return infographicBindings.value
+
+  if (lang === 'd2' || lang === 'd2lang')
+    return d2Bindings.value
 
   if (node.type === 'link')
     return linkBindings.value
@@ -1750,6 +1795,7 @@ function handleContainerMouseout(event: MouseEvent) {
 <style scoped>
 .markdown-renderer {
   position: relative;
+  line-height: 1.72;
   /* 防止内容更新时的布局抖动 */
   contain: layout;
    /* 优化不可见时的渲染成本 */

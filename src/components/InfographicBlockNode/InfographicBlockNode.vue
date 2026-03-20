@@ -16,7 +16,7 @@ const props = withDefaults(
     showCollapseButton: true,
     showModeToggle: true,
     showExportButton: true,
-    showFullscreenButton: true,
+    showFullscreenButton: false,
     showZoomControls: true,
   },
 )
