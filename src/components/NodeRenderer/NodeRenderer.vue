@@ -380,6 +380,7 @@ const viewportPriorityEnabled = computed(() => {
     return false
   return true
 })
+const rootContentVisibilityEnabled = computed(() => props.final !== true)
 // Provide viewport-priority registrar so heavy nodes can defer work until visible
 const registerNodeVisibility = provideViewportPriority(
   target => resolveViewportRoot(target ?? containerRef.value ?? null),
@@ -430,6 +431,10 @@ const scrollRootElement = ref<HTMLElement | null>(null)
 let detachScrollHandler: (() => void) | null = null
 let pendingFocusSync: { id: number | ReturnType<typeof setTimeout>, viaTimeout: boolean } | null = null
 const deferNodes = computed(() => {
+  // ! 已完成的静态内容不再做按视口延迟渲染，避免聊天历史这类长列表在滚动时
+  // ! 因 placeholder -> 实际内容替换而产生高度回流，表现成“自己往下跳”。
+  if (props.final === true)
+    return false
   if (props.deferNodesUntilVisible === false)
     return false
   // In the incremental/batched mode (`maxLiveNodes <= 0`), placeholders are
@@ -1767,7 +1772,11 @@ function handleContainerMouseout(event: MouseEvent) {
   <div
     ref="containerRef"
     class="markstream-vue markdown-renderer"
-    :class="[{ dark: props.isDark }, { virtualized: virtualizationEnabled }]"
+    :class="[
+      { dark: props.isDark },
+      { virtualized: virtualizationEnabled },
+      { 'content-visibility-disabled': !rootContentVisibilityEnabled },
+    ]"
     :data-custom-id="props.customId"
     @click="handleContainerClick"
     @mouseover="handleContainerMouseover"
@@ -1855,6 +1864,11 @@ function handleContainerMouseout(event: MouseEvent) {
      whole subtree unpainted until the scroll container dispatches a scroll
      event in some layouts (e.g. complex chat shells). The virtual window
      already limits DOM cost, so keep it visible to avoid a blank first paint. */
+  content-visibility: visible;
+  contain-intrinsic-size: auto;
+}
+
+.markdown-renderer.content-visibility-disabled {
   content-visibility: visible;
   contain-intrinsic-size: auto;
 }
