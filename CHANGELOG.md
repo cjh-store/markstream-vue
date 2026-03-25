@@ -1,3 +1,10 @@
+## [1.2.2](https://github.com/cjh-store/markstream-vue/compare/v1.2.1...v1.2.2) (2026-03-25)
+
+
+### Bug Fixes
+
+* **node-renderer:** 禁用最终内容的视口延迟渲染以避免滚动跳动 ([5998337](https://github.com/cjh-store/markstream-vue/commit/5998337a6f98c2fe1532c83c3cf0da27a1f5d2f8))
+
 ## [1.2.1](https://github.com/cjh-store/markstream-vue/compare/v1.2.0...v1.2.1) (2026-03-20)
 
 
